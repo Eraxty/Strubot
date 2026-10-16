@@ -68,23 +68,31 @@ double endBeat = prevEnd;
 
 List<string> chordtokens = new List<string>();
 
+int[] chordscale = sc == "minor" ? new int[] { 0, 2, 3, 5, 7, 8, 11 } : scale;
+
 foreach (JsonElement c in doc.GetProperty("chords").EnumerateArray())
 {
     endBeat = Math.Max(endBeat, c.GetProperty("beat").GetDouble() + c.GetProperty("duration").GetDouble());
 
     int root = c.GetProperty("root").GetInt32();
+    int inversion = c.GetProperty("inversion").GetInt32();
+
+    int[] offsets = new int[] { 0, 2, 4 };
+
+    if (inversion == 1) offsets = new int[] { 2, 4, 7 };
+    if (inversion == 2) offsets = new int[] { 4, 7, 9 };
 
     List<string> triad = new List<string>();
 
-    foreach (int step in new int[] { 0, 2, 4 })
+    foreach (int step in offsets)
     {
         int idx = root - 1 + step;
-        int midi = 60 + tonic + 12 * (-1 + idx / 7) + scale[idx % 7];
+        int midi = 60 + tonic + 12 * (-1 + idx / 7) + chordscale[idx % 7];
         
         triad.Add(notes[midi % 12] + (midi / 12 - 1));
     }
 
-    chordtokens.Add("[" + string.Join(",", triad) + "]@" + (int)Math.Round(c.GetProperty("duration").GetDouble() * 4));
+    chordtokens.Add("[" + string.Join(",", triad) + "]@" + c.GetProperty("duration").GetDouble() / 4);
 }
 
 int endGap = (int)Math.Round((endBeat - prevEnd) * 4);
@@ -134,4 +142,4 @@ for (int i = 0; i < bars.Count; i++)
 
 Console.WriteLine(").sound(\"piano\")");
 
-Console.WriteLine("\n$: note(\"" + string.Join(" ", chordtokens) + "\").sound(\"piano\")");
+Console.WriteLine("\n$: note(\"<" + string.Join(" ", chordtokens) + ">\").sound(\"piano\")");
