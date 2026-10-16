@@ -67,6 +67,7 @@ foreach (JsonElement item in doc.GetProperty("notes").EnumerateArray())
 double endBeat = prevEnd;
 
 List<string> chordtokens = new List<string>();
+List<string> bass = new List<string>();
 
 int[] chordscale = sc == "minor" ? new int[] { 0, 2, 3, 5, 7, 8, 11 } : scale;
 
@@ -93,6 +94,10 @@ foreach (JsonElement c in doc.GetProperty("chords").EnumerateArray())
     }
 
     chordtokens.Add("[" + string.Join(",", triad) + "]@" + c.GetProperty("duration").GetDouble() / 4);
+
+    int bassmidi = 60 + tonic + 12 * (-2 + (root - 1) / 7) + chordscale[(root - 1) % 7];
+
+    bass.Add(notes[bassmidi % 12] + (bassmidi / 12 - 1) + "@" + c.GetProperty("duration").GetDouble() / 4);
 }
 
 int endGap = (int)Math.Round((endBeat - prevEnd) * 4);
@@ -128,8 +133,19 @@ foreach (var e in all)
 if (events.Count > 0) bars.Add(string.Join(" ", events));
 
 
-Console.Write("Enter song's BPM: ");
-string bpm = Console.ReadLine();
+JsonElement tempos = doc.GetProperty("modern").GetProperty("payload").GetProperty("tempos");
+
+string bpm;
+
+if (tempos.GetArrayLength() > 0)
+{
+    bpm = tempos[0].GetProperty("tempo").GetDouble().ToString();
+}
+else
+{
+    Console.Write("Enter song's BPM: ");
+    bpm = Console.ReadLine();
+}
 
 // writing
 Console.WriteLine($"setcps({bpm}/60/4)\n\n$: cat(");
@@ -143,3 +159,5 @@ for (int i = 0; i < bars.Count; i++)
 Console.WriteLine(").sound(\"piano\")");
 
 Console.WriteLine("\n$: note(\"<" + string.Join(" ", chordtokens) + ">\").sound(\"piano\")");
+
+Console.WriteLine("\n$: note(\"<" + string.Join(" ", bass) + ">\").sound(\"piano\")");
