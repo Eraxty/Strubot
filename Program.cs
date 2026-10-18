@@ -27,6 +27,35 @@ string sc = key.GetProperty("scale").GetString();
 int[] scale = scales.ContainsKey(sc) ? scales[sc] : scales["major"];
 
 
+int beatsPerBar = 4;
+JsonElement meters = doc.GetProperty("modern").GetProperty("payload").GetProperty("meters");
+
+if (meters.GetArrayLength() > 0)
+{
+    JsonElement meter = meters[0];
+
+    if (meter.TryGetProperty("meter", out JsonElement sig) && sig.ValueKind == JsonValueKind.String && sig.GetString().Contains('/'))
+    {
+        beatsPerBar = int.Parse(sig.GetString().Split('/')[0]);
+    }
+    
+    else
+    {
+        foreach (string name in new[] { "beatsPerBar", "numerator", "beats" })
+        {
+            if (meter.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.Number)
+            {
+                beatsPerBar = v.GetInt32();
+                break;
+            }
+        }
+    }
+}
+
+if (beatsPerBar < 1) beatsPerBar = 4;
+
+int barLen = beatsPerBar * 4;
+
 
 List<(string tok, int len)> all = new List<(string tok, int len)>();
 
@@ -93,11 +122,11 @@ foreach (JsonElement c in doc.GetProperty("chords").EnumerateArray())
         triad.Add(notes[midi % 12] + (midi / 12 - 1));
     }
 
-    chordtokens.Add("[" + string.Join(",", triad) + "]@" + c.GetProperty("duration").GetDouble() / 4);
+    chordtokens.Add("[" + string.Join(",", triad) + "]@" + c.GetProperty("duration").GetDouble() / beatsPerBar);
 
     int bassmidi = 60 + tonic + 12 * (-2 + (root - 1) / 7) + chordscale[(root - 1) % 7];
 
-    bass.Add(notes[bassmidi % 12] + (bassmidi / 12 - 1) + "@" + c.GetProperty("duration").GetDouble() / 4);
+    bass.Add(notes[bassmidi % 12] + (bassmidi / 12 - 1) + "@" + c.GetProperty("duration").GetDouble() / beatsPerBar);
 }
 
 int endGap = (int)Math.Round((endBeat - prevEnd) * 4);
@@ -116,13 +145,13 @@ foreach (var e in all)
     
     while (left > 0)
     {
-        int take = Math.Min(left, 16 - used);
+        int take = Math.Min(left, barLen - used);
         
         events.Add(e.tok + "@" + take);
         used += take;
         left -= take;
 
-        if (used == 16)
+        if (used == barLen)
         {
             bars.Add(string.Join(" ", events));
             events = new List<string>();
@@ -148,7 +177,7 @@ else
 }
 
 // writing
-Console.WriteLine($"setcps({bpm}/60/4)\n\n$: cat(");
+Console.WriteLine($"setcps({bpm}/60/{beatsPerBar})\n\n$: cat(");
 
 for (int i = 0; i < bars.Count; i++)
 {
