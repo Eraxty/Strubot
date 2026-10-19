@@ -16,8 +16,26 @@ Dictionary<string, int[]> scales = new Dictionary<string, int[]>
     {"minor", new int[]{0,2,3,5,7,8,10}}
 };
 
-string json = File.ReadAllText(args[0]);
+Console.Write("Enter song's BPM: ");
 
+string bpm = Console.ReadLine();
+
+Console.Write("How many JSON parts? ");
+
+int partCount = int.Parse(Console.ReadLine());
+
+List<string> songBars = new List<string>();
+List<string> songChords = new List<string>();
+List<string> songBass = new List<string>();
+
+int songBeatsPerBar = 4;
+
+for (int part = 0; part < partCount; part++)
+{
+
+Console.Write($"Paste JSON part {part + 1}: ");
+
+string json = Console.ReadLine();
 
 JsonElement doc = JsonDocument.Parse(json).RootElement;
 JsonElement key = doc.GetProperty("keys")[0];
@@ -53,6 +71,7 @@ if (meters.GetArrayLength() > 0)
 }
 
 if (beatsPerBar < 1) beatsPerBar = 4;
+songBeatsPerBar = beatsPerBar;
 
 int barLen = beatsPerBar * 4;
 
@@ -162,31 +181,22 @@ foreach (var e in all)
 if (events.Count > 0) bars.Add(string.Join(" ", events));
 
 
-JsonElement tempos = doc.GetProperty("modern").GetProperty("payload").GetProperty("tempos");
-
-string bpm;
-
-if (tempos.GetArrayLength() > 0)
-{
-    bpm = tempos[0].GetProperty("tempo").GetDouble().ToString();
-}
-else
-{
-    Console.Write("Enter song's BPM: ");
-    bpm = Console.ReadLine();
+songBars.AddRange(bars);
+songChords.AddRange(chordtokens);
+songBass.AddRange(bass);
 }
 
 // writing
-Console.WriteLine($"setcps({bpm}/60/{beatsPerBar})\n\n$: cat(");
+Console.WriteLine($"setcps({bpm}/60/{songBeatsPerBar})\n\n$: cat(");
 
-for (int i = 0; i < bars.Count; i++)
+for (int i = 0; i < songBars.Count; i++)
 {
-    string comma = i < bars.Count - 1 ? "," : "";
-    Console.WriteLine($"  note(\"{bars[i]}\"){comma}");
+    string comma = i < songBars.Count - 1 ? "," : "";
+    Console.WriteLine($"  note(\"{songBars[i]}\"){comma}");
 }
 
 Console.WriteLine(").sound(\"piano\")");
 
-Console.WriteLine("\n$: note(\"<" + string.Join(" ", chordtokens) + ">\").sound(\"piano\")");
+Console.WriteLine("\n$: note(\"<" + string.Join(" ", songChords) + ">\").sound(\"piano\")");
 
-Console.WriteLine("\n$: note(\"<" + string.Join(" ", bass) + ">\").sound(\"piano\")");
+Console.WriteLine("\n$: note(\"<" + string.Join(" ", songBass) + ">\").sound(\"piano\")");
