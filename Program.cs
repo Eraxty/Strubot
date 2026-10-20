@@ -5,7 +5,7 @@ string[] notes = { "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "
 
 Dictionary<string, int> tonics = new Dictionary<string, int>
 {
-    {"C",0},{"C#",1},{"D",2},{"D#",3},{"E",4},{"F",5},{"F#",6},{"G",7},{"G#",8},{"A",9},{"A#",10},{"B",11}
+    {"C",0},{"C#",1},{"Db",1},{"D",2},{"D#",3},{"Eb",3},{"E",4},{"F",5},{"F#",6},{"Gb",6},{"G",7},{"G#",8},{"Ab",8},{"A",9},{"A#",10},{"Bb",10},{"B",11}
 };
 
 
@@ -37,12 +37,39 @@ Console.Write($"Paste JSON part {part + 1}: ");
 
 string json = Console.ReadLine();
 
-JsonElement doc = JsonDocument.Parse(json).RootElement;
+JsonDocument parsed;
+
+try
+{
+    parsed = JsonDocument.Parse(json);
+}
+
+catch (JsonException)
+
+{
+    Console.WriteLine("bruh ts not json >?!/1");
+    return;
+}
+
+JsonElement doc = parsed.RootElement;
 JsonElement key = doc.GetProperty("keys")[0];
 
-int tonic = tonics[key.GetProperty("tonic").GetString()];
-string sc = key.GetProperty("scale").GetString();
-int[] scale = scales.ContainsKey(sc) ? scales[sc] : scales["major"];
+string tonicName = key.GetProperty("tonic").GetString() ?? "";
+tonicName = tonicName.Replace("♭", "b").Replace("♯", "#");
+
+if (!tonics.TryGetValue(tonicName, out int tonic))
+{
+    Console.WriteLine("unknown tonic in json make a pr or smthin to fix bugs: " + tonicName);
+    return;
+}
+
+string sc = key.GetProperty("scale").GetString()?.ToLower() ?? "";
+
+if (!scales.TryGetValue(sc, out int[] scale))
+{
+    Console.WriteLine("unknown scale in json make a pr or smthin to fix bugs: " + sc);
+    return;
+}
 
 
 int beatsPerBar = 4;
@@ -77,8 +104,7 @@ int barLen = beatsPerBar * 4;
 
 
 List<(string tok, int len)> all = new List<(string tok, int len)>();
-
-double prevEnd = 1;
+int pos = 0;
 
 
 // conversions
@@ -86,6 +112,12 @@ foreach (JsonElement item in doc.GetProperty("notes").EnumerateArray())
 {
     double beat = item.GetProperty("beat").GetDouble();
     double duration = item.GetProperty("duration").GetDouble();
+    
+    int start = (int)Math.Round((beat - 1) * 4);
+    int end = (int)Math.Round((beat + duration - 1) * 4);
+    
+    if (start < pos) start = pos;
+    if (end <= start) continue;
 
     string token = "~";
 
@@ -103,12 +135,10 @@ foreach (JsonElement item in doc.GetProperty("notes").EnumerateArray())
         token = notes[midi % 12] + (midi / 12 - 1);
     }
 
-    int gap = (int)Math.Round((beat - prevEnd) * 4);
+    if (start > pos) all.Add(("~", start - pos));
     
-    if (gap > 0) all.Add(("~", gap));
-
-    all.Add((token, (int)Math.Round(duration * 4)));
-    prevEnd = beat + duration;
+    all.Add((token, end - start));
+    pos = end;
 }
 
 
