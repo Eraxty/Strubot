@@ -1,4 +1,49 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
+using System.Text;
+
+static bool CopyOutput(string text)
+{
+    List<string[]> commands = new List<string[]>();
+
+    if (OperatingSystem.IsWindows()) commands.Add(new[] { "clip" });
+    
+    else if (OperatingSystem.IsMacOS()) commands.Add(new[] { "pbcopy" });
+    
+    else
+    {
+        commands.Add(new[] { "wl-copy" });
+        commands.Add(new[] { "xclip", "-selection", "clipboard" });
+        commands.Add(new[] { "xsel", "--clipboard", "--input" });
+    }
+
+    foreach (string[] command in commands)
+    {
+        try
+        {
+            ProcessStartInfo info = new ProcessStartInfo(command[0]);
+            
+            info.UseShellExecute = false;
+            info.RedirectStandardInput = true;
+    
+            for (int i = 1; i < command.Length; i++) info.ArgumentList.Add(command[i]);
+    
+            using Process process = Process.Start(info);
+            
+            process.StandardInput.Write(text);
+            process.StandardInput.Close();
+            process.WaitForExit();
+            
+            if (process.ExitCode == 0) return true;
+        }
+        catch (Exception) { }
+    }
+
+    string clip = Convert.ToBase64String(Encoding.UTF8.GetBytes(text));
+    
+    Console.Write("\u001b]52;c;" + clip + "\u0007");
+    return true;
+}
 
 string[] notes = { "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" };
 
@@ -239,17 +284,31 @@ songChords.AddRange(chordtokens);
 songBass.AddRange(bass);
 }
 
-// writing
-Console.WriteLine($"setcps({bpm}/60/{songBeatsPerBar})\n\n$: cat(");
+// output
+List<string> output = new List<string>();
+output.Add($"setcps({bpm}/60/{songBeatsPerBar})");
+output.Add("");
+output.Add("$: cat(");
 
 for (int i = 0; i < songBars.Count; i++)
 {
     string comma = i < songBars.Count - 1 ? "," : "";
-    Console.WriteLine($"  note(\"{songBars[i]}\"){comma}");
+    output.Add($"  note(\"{songBars[i]}\"){comma}");
 }
 
-Console.WriteLine(").sound(\"piano\")");
+output.Add(").sound(\"piano\")");
+output.Add("");
+output.Add("$: note(\"<" + string.Join(" ", songChords) + ">\").sound(\"piano\")");
+output.Add("");
+output.Add("$: note(\"<" + string.Join(" ", songBass) + ">\").sound(\"piano\")");
 
-Console.WriteLine("\n$: note(\"<" + string.Join(" ", songChords) + ">\").sound(\"piano\")");
+string code = string.Join(Environment.NewLine, output);
 
-Console.WriteLine("\n$: note(\"<" + string.Join(" ", songBass) + ">\").sound(\"piano\")");
+Console.Clear();
+
+Console.WriteLine(code);
+
+Console.Write("[c] to copy code, any other key to finish: ");
+
+if (Console.ReadKey(true).KeyChar == 'c')
+    Console.WriteLine(CopyOutput(code) ? "copied" : "cant open clipboard just copy the boxed text manually");
