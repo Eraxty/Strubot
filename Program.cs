@@ -9,11 +9,18 @@ Dictionary<string, int> tonics = new Dictionary<string, int>
 };
 
 
-
+// semitones 
 Dictionary<string, int[]> scales = new Dictionary<string, int[]>
 {
     {"major", new int[]{0,2,4,5,7,9,11}},
-    {"minor", new int[]{0,2,3,5,7,8,10}}
+    {"minor", new int[]{0,2,3,5,7,8,10}},
+    {"dorian", new int[]{0,2,3,5,7,9,10}},
+    {"phrygian", new int[]{0,1,3,5,7,8,10}},
+    {"lydian", new int[]{0,2,4,6,7,9,11}},
+    {"mixolydian", new int[]{0,2,4,5,7,9,10}},
+    {"locrian", new int[]{0,1,3,5,6,8,10}},
+    {"harmonicminor", new int[]{0,2,3,5,7,8,11}},
+    {"phrygiandominant", new int[]{0,1,4,5,7,8,10}}
 };
 
 Console.Write("Enter song's BPM: ");
@@ -63,7 +70,7 @@ if (!tonics.TryGetValue(tonicName, out int tonic))
     return;
 }
 
-string sc = key.GetProperty("scale").GetString()?.ToLower() ?? "";
+string sc = key.GetProperty("scale").GetString()?.ToLower().Replace(" ", "").Replace("-", "") ?? "";
 
 if (!scales.TryGetValue(sc, out int[] scale))
 {
