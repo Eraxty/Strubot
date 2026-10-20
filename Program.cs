@@ -112,7 +112,7 @@ foreach (JsonElement item in doc.GetProperty("notes").EnumerateArray())
 }
 
 
-double endBeat = prevEnd;
+double chordEnd = 1;
 
 List<string> chordtokens = new List<string>();
 List<string> bass = new List<string>();
@@ -121,7 +121,7 @@ int[] chordscale = sc == "minor" ? new int[] { 0, 2, 3, 5, 7, 8, 11 } : scale;
 
 foreach (JsonElement c in doc.GetProperty("chords").EnumerateArray())
 {
-    endBeat = Math.Max(endBeat, c.GetProperty("beat").GetDouble() + c.GetProperty("duration").GetDouble());
+    chordEnd = Math.Max(chordEnd, c.GetProperty("beat").GetDouble() + c.GetProperty("duration").GetDouble());
 
     int root = c.GetProperty("root").GetInt32();
     int inversion = c.GetProperty("inversion").GetInt32();
@@ -148,10 +148,26 @@ foreach (JsonElement c in doc.GetProperty("chords").EnumerateArray())
     bass.Add(notes[bassmidi % 12] + (bassmidi / 12 - 1) + "@" + c.GetProperty("duration").GetDouble() / beatsPerBar);
 }
 
-int endGap = (int)Math.Round((endBeat - prevEnd) * 4);
+int target = (int)Math.Round((chordEnd - 1) * 4);
 
-if (endGap > 0) all.Add(("~", endGap));
+target = (target + barLen - 1) / barLen * barLen;
 
+int total = 0;
+
+foreach (var e in all) total += e.len;
+while (total > target && all.Count > 0)
+{
+    var last = all[all.Count - 1];
+
+    int cut = Math.Min(total - target, last.len);
+
+    total -= cut;
+
+    if (cut == last.len) all.RemoveAt(all.Count - 1);
+    else all[all.Count - 1] = (last.tok, last.len - cut);
+}
+
+if (total < target) all.Add(("~", target - total));
 
 List<string> bars = new List<string>();
 List<string> events = new List<string>();
